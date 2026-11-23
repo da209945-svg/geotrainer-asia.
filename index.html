@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#173f36"><title>GeoTrainer — Азия</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--green:#245f50;--mint:#e8f2ed;--ink:#20332d;--muted:#718078;--line:#dfe8e1}
+*{box-sizing:border-box}body{margin:0;background:#f5f7f3;color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:18px 20px;background:#173f36;color:white}header h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:#c6d9d0;font-size:13px}
+main{max-width:1250px;margin:auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px}
+#map{height:calc(100vh - 112px);min-height:480px;border-radius:16px;border:1px solid var(--line);background:#dce6df;touch-action:pan-x pan-y}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.kicker{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:750}
+#prompt{font-size:26px;line-height:1.15;font-weight:800;margin-top:5px}
+select,button{font:inherit;border:1px solid var(--line);border-radius:11px;padding:12px;background:white;color:var(--ink);width:100%}
+button{font-weight:700;cursor:pointer}button.primary{background:var(--green);border-color:var(--green);color:white}
+button:disabled{opacity:.4}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#f0f5f1;padding:10px;border-radius:12px}.stat b{display:block;font-size:23px;margin-top:3px}
+#feedback{min-height:48px;font-size:14px;line-height:1.4}.good{color:#14734d}.bad{color:#ad503d}
+.track{height:7px;border-radius:9px;background:#edf1ed;overflow:hidden}.track span{display:block;height:100%;background:#4b9479;width:0}
+.hint{font-size:12px;color:var(--muted);line-height:1.4}
+.leaflet-container{font:inherit}.leaflet-control-attribution{font-size:9px!important}
+@media(max-width:850px){main{display:flex;flex-direction:column;padding:10px}.panel{order:0}.mapwrap{order:1}#map{height:55vh;min-height:380px}.panel{gap:10px}#prompt{font-size:23px}}
+</style></head><body>
+<header><h1>GeoTrainer · Азия</h1><p>Физическая номенклатура · отмечай объекты прямо на карте</p></header>
+<main>
+<section class="mapwrap"><div id="map" aria-label="Физическая карта Азии"></div></section>
+<aside class="panel">
+ <div><div class="kicker">Категория</div><select id="category">
+ <option value="Все">Все объекты</option><option>Моря</option><option>Заливы</option><option>Проливы</option><option>Острова</option><option>Полуострова</option><option>Мысы</option><option>Равнины и нагорья</option><option>Горы</option><option>Вершины</option><option>Пустыни</option><option>Реки</option><option>Озёра</option></select></div>
+ <div><div class="kicker">Найди на карте</div><div id="prompt">Загрузка…</div></div>
+ <div class="track"><span id="progress"></span></div>
+ <div class="stats"><div class="stat"><span class="kicker">Правильно</span><b id="right">0</b></div><div class="stat"><span class="kicker">Попытки</span><b id="attempts">0</b></div></div>
+ <div id="feedback">Нажми на предполагаемое место объекта на карте. Можно приближать карту.</div>
+ <button class="primary" id="skip">Следующий объект</button><button id="retry">Повторить ошибки</button>
+ <div class="hint">Карта — физическая подложка Esri. Для гор, рек и протяжённых объектов принимается область вокруг условной контрольной точки. Набор объектов — рабочая версия, его ещё нужно сверить со всеми строками твоего учебника.</div>
+</aside></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const data = [
+["Красное море","Моря",20,38,450],["Аравийское море","Моря",14,66,520],["Андаманское море","Моря",10,96,350],["Охотское море","Моря",54,148,450],["Японское море","Моря",40,135,350],["Жёлтое море","Моря",35,123,300],["Восточно-Китайское море","Моря",27,126,400],["Южно-Китайское море","Моря",12,113,500],["Сулу","Моря",8,122,220],["Сулавеси","Моря",1,122,250],["Банда","Моря",-5,128,300],["Флорес","Моря",-8,121,250],["Яванское море","Моря",-6,110,300],
+["Персидский залив","Заливы",26,52,220],["Оманский залив","Заливы",24,58,220],["Аденский залив","Заливы",12,48,250],["Бенгальский залив","Заливы",14,88,400],["Сиамский залив","Заливы",10,101,300],["Тонкинский залив","Заливы",19,107,200],["Манарский залив","Заливы",8,79,180],
+["Баб-эль-Мандебский пролив","Проливы",12.6,43.3,110],["Ормузский пролив","Проливы",26.5,56.5,110],["Малаккский пролив","Проливы",2.5,101,170],["Зондский пролив","Проливы",-6,105.5,110],["Корейский пролив","Проливы",34,129,110],["Тайваньский пролив","Проливы",24.5,119.5,110],["Берингов пролив","Проливы",66,169,140],
+["Шри-Ланка","Острова",7.8,80.7,180],["Хайнань","Острова",19.2,109.7,140],["Тайвань","Острова",23.7,121,140],["Ява","Острова",-7.5,110,260],["Суматра","Острова",-0.5,101,320],["Филиппинские острова","Острова",12,122,400],["Японские острова","Острова",36,138,450],["Мальдивские острова","Острова",3.2,73,180],["Андаманские острова","Острова",12,92.8,180],
+["Малая Азия","Полуострова",39,32,320],["Синайский полуостров","Полуострова",29.8,33.8,190],["Аравийский полуостров","Полуострова",22,45,520],["Индостан","Полуострова",20,78,470],["Индокитай","Полуострова",17,103,470],["Малакка","Полуострова",5,102,190],["Корейский полуостров","Полуострова",38,127,270],
+["мыс Челюскин","Мысы",77.7,104.3,110],["мыс Дежнёва","Мысы",66.1,-169.7,110],["мыс Пиай","Мысы",1.3,103.5,90],
+["Месопотамская низменность","Равнины и нагорья",32,45,360],["Туранская низменность","Равнины и нагорья",40,61,470],["Индо-Гангская низменность","Равнины и нагорья",27,82,520],["Великая Китайская равнина","Равнины и нагорья",36,116,470],["Тибетское нагорье","Равнины и нагорья",32,88,520],["Деканское плоскогорье","Равнины и нагорья",17,77,420],["Ордос","Равнины и нагорья",39,109,260],["плоскогорье Корат","Равнины и нагорья",16,103,220],
+["Гималаи","Горы",28,86,520],["Каракорум","Горы",36,76,320],["Памир","Горы",38.5,73,270],["Тянь-Шань","Горы",42,80,420],["Куньлунь","Горы",36,90,470],["Гиндукуш","Горы",35,70,270],["Загрос","Горы",32,50,370],["Кавказ","Горы",42.5,44.5,270],["Алтай","Горы",49,88,370],["Саяны","Горы",52,98,320],["Большой Хинган","Горы",47,120,320],["Западные Гаты","Горы",11,76,270],["Восточные Гаты","Горы",16,80,270],["Копетдаг","Горы",38,57,200],
+["Эверест / Джомолунгма","Вершины",27.99,86.93,100],["Эльбрус","Вершины",43.35,42.44,100],["Большой Арарат","Вершины",39.7,44.3,100],["пик Победы","Вершины",42,80.1,100],["К2","Вершины",35.88,76.51,100],["Канченджанга","Вершины",27.7,88.15,100],
+["Руб-эль-Хали","Пустыни",20,52,520],["Большой Нефуд","Пустыни",28,40,320],["Каракумы","Пустыни",39,59,320],["Кызылкум","Пустыни",42,63,320],["Такла-Макан","Пустыни",39,83,370],["Гоби","Пустыни",42,105,470],["Сирийская пустыня","Пустыни",33,39,370],
+["Обь","Реки",60,75,470],["Енисей","Реки",63,88,470],["Лена","Реки",63,127,470],["Амур","Реки",49,127,370],["Янцзы","Реки",30,112,470],["Хуанхэ","Реки",37,108,370],["Меконг","Реки",17,105,420],["Ганг","Реки",25,85,370],["Брахмапутра","Реки",27,92,370],["Инд","Реки",28,68,420],["Тигр","Реки",36,43,270],["Евфрат","Реки",35,39,270],["Сырдарья","Реки",44,67,270],["Амударья","Реки",40,63,270],["Иравади","Реки",20,95,320],["Салуин","Реки",23,98,320],["Тарим","Реки",40,82,270],
+["Байкал","Озёра",53.5,108,190],["Балхаш","Озёра",46,74,190],["Иссык-Куль","Озёра",42.4,77.3,140],["Аральское море","Озёра",45,60,260],["Каспийское море","Озёра",41,51,470],["Мёртвое море","Озёра",31.5,35.5,110],["Ван","Озёра",38.6,42.8,110],["Урмия","Озёра",37.7,45.3,110],["Ханка","Озёра",45,132,150],["Кукунор","Озёра",37,100,190],["Лобнор","Озёра",40,90,150],["Севан","Озёра",40.5,45,110]
+];
+const map=L.map('map',{tap:true,zoomControl:true}).setView([34,92],3);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',maxZoom:8}).addTo(map);
+let current=null,correct=0,attempts=0,seen=new Set(),errors=[],retryMode=false;
+const el=id=>document.getElementById(id);
+function candidates(){const c=el('category').value;return data.filter(x=>c==='Все'||x[1]===c)}
+function pick(){let a=retryMode?errors:candidates().filter(x=>!seen.has(x[0]));if(!a.length){if(retryMode){retryMode=false;el('feedback').textContent='Ошибки повторены. Продолжаем новые объекты.'}seen.clear();a=candidates()}current=a[Math.floor(Math.random()*a.length)];el('prompt').textContent=current[0];el('feedback').textContent='Отметь место на карте нажатием.';el('feedback').className='';el('skip').disabled=false;el('progress').style.width=(seen.size/Math.max(candidates().length,1)*100)+'%'}
+function stats(){el('right').textContent=correct;el('attempts').textContent=attempts}
+function next(){if(retryMode&&errors.length)errors=errors.filter(x=>x!==current);pick()}
+el('skip').onclick=next;
+el('retry').onclick=()=>{if(!errors.length){el('feedback').textContent='Ошибок пока нет. Сначала выполни несколько заданий.';return}retryMode=true;pick()};
+el('category').onchange=()=>{seen.clear();retryMode=false;errors=[];pick()};
+map.on('click',e=>{if(!current)return;attempts++;const km=map.distance(e.latlng,L.latLng(current[2],current[3]))/1000;if(km<=current[4]){correct++;seen.add(current[0]);errors=errors.filter(x=>x!==current);el('feedback').textContent='Верно! Ты нашла объект.';el('feedback').className='good';stats();setTimeout(pick,650)}else{if(!errors.includes(current))errors.push(current);el('feedback').textContent='Не совсем. Приблизь карту и попробуй ещё раз.';el('feedback').className='bad';stats()}});
+stats();pick();setTimeout(()=>map.invalidateSize(),300);
+</script></body></html>
